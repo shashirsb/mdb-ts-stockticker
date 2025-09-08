@@ -1,1 +1,0 @@
-# mdb-ts-stockticker
