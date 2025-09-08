@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KO — Bi‑temporal Stock</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    .card { padding: 16px 20px; border: 1px solid #e5e7eb; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
+    .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    label { font-weight: 600; }
+    .pill { display:inline-block; padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>KO — Full History Line Graph (Bi‑temporal)</h1>
+  <p class="pill">Source: MongoDB 8.0 time‑series</p>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="row">
+      <div>
+        <label>Price View:</label>
+        <label><input type="radio" name="mode" value="raw" checked> Raw</label>
+        <label><input type="radio" name="mode" value="adjusted"> Split‑Adjusted</label>
+      </div>
+      <div>
+        <label>Range:</label>
+        <select id="range">
+          <option value="all" selected>All (2020‑01‑01 → 2025‑09‑08)</option>
+          <option value="ytd">YTD (2025)</option>
+          <option value="pre2022">Pre‑first split (≤ 2022‑03‑21)</option>
+          <option value="post2025">Post‑second split (≥ 2025‑01‑09)</option>
+        </select>
+      </div>
+    </div>
+
+    <canvas id="chart" height="120"></canvas>
+  </div>
+</div>
+
+<script>
+let DATA = [];
+let chart;
+
+function byMode(point, mode){
+  return mode === 'adjusted' ? point.price_adjusted : point.price_raw;
+}
+
+function filterRange(rows, key){
+  const d = s => new Date(s);
+  if (key === 'all') return rows;
+  if (key === 'ytd') return rows.filter(r => d(r.ts) >= d('2025-01-01'));
+  if (key === 'pre2022') return rows.filter(r => d(r.ts) <= d('2022-03-21'));
+  if (key === 'post2025') return rows.filter(r => d(r.ts) >= d('2025-01-09'));
+  return rows;
+}
+
+function annotationsForRange(rows){
+  const ann = {};
+  rows.forEach((r,i) => {
+    if(r.eventTags && r.eventTags.length){
+      r.eventTags.forEach((e,j)=>{
+        ann['event_'+i+'_'+j] = {
+          type:'line',
+          xMin: r.ts,
+          xMax: r.ts,
+          borderColor:'red',
+          borderWidth:1,
+          label:{display:true, content:e.label, color:'red', position:'start'}
+        }
+      })
+    }
+  });
+  return ann;
+}
+
+function init(){
+  const ctx = document.getElementById('chart').getContext('2d');
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  const rng = document.getElementById('range').value;
+  const rows = filterRange(DATA, rng);
+
+  const labels = rows.map(r => r.ts);
+  const values = rows.map(r => byMode(r, mode));
+
+  const config = {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: mode === 'adjusted' ? 'KO (Split‑Adjusted)' : 'KO (Raw)',
+        data: values,
+        pointRadius: 0,
+        borderWidth: 2,
+        borderColor: mode==='adjusted'?'blue':'green',
+        tension: 0.2
+      }]
+    },
+    options: {
+      responsive:true,
+      interaction:{mode:'index', intersect:false},
+      scales:{x:{type:'time', time:{unit:'month', tooltipFormat:'yyyy-MM-dd'}}, y:{beginAtZero:false}},
+      plugins:{
+        legend:{display:true},
+        annotation:{annotations:annotationsForRange(rows)},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`}}
+      }
+    }
+  };
+
+  if(chart) chart.destroy();
+  chart = new Chart(ctx, config);
+}
+
+// Fetch full dataset from Flask API
+fetch('http://127.0.0.1:5001/api/ko')
+  .then(r => r.json())
+  .then(json => { DATA = json; init(); });
+
+// Wire controls
+Array.from(document.querySelectorAll('input[name="mode"]')).forEach(el=>el.addEventListener('change', init));
+document.getElementById('range').addEventListener('change', init);
+</script>
+</body>
+</html>
