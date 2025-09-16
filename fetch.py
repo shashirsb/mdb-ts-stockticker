@@ -5,7 +5,7 @@ from pymongo import MongoClient
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
-client = MongoClient("mongodb+srv://mainuser:<password>@cluster0.d8jtf.mongodb.net/?retryWrites=true&w=majority")
+client = MongoClient("mongodb+srv://mainuser:<password>@cluster0.mongodb.net/?retryWrites=true&w=majority")
 db = client["marketdata"]
 
 @app.get('/api/ko')
