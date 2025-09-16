@@ -8,7 +8,7 @@ from pymongo.errors import CollectionInvalid
 # -------------------------
 # Configuration
 # -------------------------
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://mainuser:<password>@cluster0.d8jtf.mongodb.net/?retryWrites=true&w=majority")
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://mainuser:<password>@cluster0.mongodb.net/?retryWrites=true&w=majority")
 DB_NAME = os.getenv("DB_NAME", "marketdata")
 TS_COLL = os.getenv("TS_COLL", "stock_ticks_v2")
 SYMBOL = os.getenv("SYMBOL", "KO")
